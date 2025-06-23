@@ -15,9 +15,6 @@ export STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=false
 # Navigate to app directory
 cd /mnt/code/apps/semantic_search
 
-# Install any missing dependencies
-pip install -r requirements.txt
-
 # Launch Streamlit app
 echo "Launching Streamlit on port 8888..."
 streamlit run app.py \
