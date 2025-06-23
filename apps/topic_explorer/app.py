@@ -16,33 +16,149 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom CSS
+# Custom CSS for proper contrast and readability
 st.markdown("""
 <style>
+    /* Override Streamlit's default styling */
+    .stApp {
+        background-color: #ffffff;
+    }
+    
+    /* Main header */
     .main-header {
         background: linear-gradient(90deg, #17a2b8 0%, #138496 100%);
-        color: white;
+        color: white !important;
         padding: 1.5rem;
         border-radius: 10px;
         margin-bottom: 2rem;
         text-align: center;
     }
+    
+    .main-header h1 {
+        color: white !important;
+        margin: 0;
+    }
+    
+    .main-header p {
+        color: white !important;
+        margin: 0.5rem 0 0 0;
+    }
+    
+    /* Topic cards */
     .topic-card {
-        background: white;
+        background: #ffffff;
+        color: #333333;
         padding: 1rem;
         border-radius: 8px;
         border-left: 4px solid #17a2b8;
         margin: 0.5rem 0;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border: 1px solid #e0e0e0;
     }
+    
+    .topic-card strong {
+        color: #17a2b8;
+        font-weight: bold;
+    }
+    
+    .topic-card p {
+        color: #333333;
+        margin: 0.5rem 0;
+        line-height: 1.5;
+    }
+    
+    /* Keyword tags */
     .keyword-tag {
         background: #e8f7f9;
-        color: #17a2b8;
+        color: #17a2b8 !important;
         padding: 0.2rem 0.5rem;
         border-radius: 12px;
         font-size: 0.8rem;
         margin: 0.2rem;
         display: inline-block;
+        border: 1px solid #17a2b8;
+    }
+    
+    /* Sidebar styling */
+    .css-1d391kg {
+        background-color: #f8f9fa;
+    }
+    
+    /* Text input styling */
+    .stTextInput > div > div > input {
+        background-color: white;
+        color: #333333;
+        border: 1px solid #cccccc;
+    }
+    
+    /* Selectbox styling */
+    .stSelectbox > div > div > select {
+        background-color: white;
+        color: #333333;
+    }
+    
+    /* Multiselect styling */
+    .stMultiSelect > div > div {
+        background-color: white;
+        color: #333333;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        background-color: #17a2b8;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 0.5rem 1rem;
+    }
+    
+    .stButton > button:hover {
+        background-color: #138496;
+    }
+    
+    /* Checkbox styling */
+    .stCheckbox > label {
+        color: #333333;
+    }
+    
+    /* Fix any white text issues */
+    .stMarkdown, .stText, p, div, span {
+        color: #333333 !important;
+    }
+    
+    /* Ensure readability in all elements */
+    .element-container, .stMarkdown > div {
+        color: #333333 !important;
+    }
+    
+    /* Dataframe styling */
+    .stDataFrame {
+        background-color: white;
+        color: #333333;
+    }
+    
+    /* Info boxes */
+    .stInfo {
+        background-color: #e8f7f9;
+        color: #333333;
+        border: 1px solid #17a2b8;
+    }
+    
+    /* Warning boxes */
+    .stWarning {
+        background-color: #fff3cd;
+        color: #333333;
+        border: 1px solid #ffc107;
+    }
+    
+    /* Metric styling */
+    .metric-container {
+        background: white;
+        color: #333333;
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
+        text-align: center;
     }
 </style>
 """, unsafe_allow_html=True)
