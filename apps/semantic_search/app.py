@@ -2,13 +2,12 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import pickle
 import json
 from datetime import datetime, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
-from sentence_transformers import SentenceTransformer
 import os
+import requests
 
 # Configure page
 st.set_page_config(
