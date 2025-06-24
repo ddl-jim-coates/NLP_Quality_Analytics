@@ -17,7 +17,7 @@ pipeline {
                     echo "Build Number: ${BUILD_NUMBER}"
                     echo "Domino URL: ${DOMINO_URL}"
                     echo "Domino Project: ${DOMINO_PROJECT}"
-                    echo "Full API URL: ${DOMINO_URL}/projects/${DOMINO_PROJECT}/jobs"
+                    echo "Full API URL: ${DOMINO_URL}/v1/projects/${DOMINO_PROJECT}/jobs"
                 }
             }
         }
@@ -31,7 +31,7 @@ pipeline {
                     try {
                         def projectResponse = httpRequest(
                             httpMode: 'GET',
-                            url: "${DOMINO_URL}/projects/${DOMINO_PROJECT}",
+                            url: "${DOMINO_URL}/v1/projects/${DOMINO_PROJECT}",
                             customHeaders: [
                                 [name: 'X-Domino-Api-Key', value: DOMINO_API_KEY, maskValue: true]
                             ],
@@ -52,7 +52,7 @@ pipeline {
                     try {
                         def baseResponse = httpRequest(
                             httpMode: 'GET',
-                            url: "${DOMINO_URL}/projects",
+                            url: "${DOMINO_URL}/v1/projects",
                             customHeaders: [
                                 [name: 'X-Domino-Api-Key', value: DOMINO_API_KEY, maskValue: true]
                             ],
@@ -85,7 +85,7 @@ pipeline {
                             echo "Testing path: ${projectPath}"
                             def response = httpRequest(
                                 httpMode: 'GET',
-                                url: "${DOMINO_URL}/projects/${projectPath}",
+                                url: "${DOMINO_URL}/v1/projects/${projectPath}",
                                 customHeaders: [
                                     [name: 'X-Domino-Api-Key', value: DOMINO_API_KEY, maskValue: true]
                                 ],
@@ -126,7 +126,7 @@ pipeline {
                     
                     def response = httpRequest(
                         httpMode: 'POST',
-                        url: "${DOMINO_URL}/projects/${env.CORRECT_PROJECT_PATH}/jobs",
+                        url: "${DOMINO_URL}/v1/projects/${env.CORRECT_PROJECT_PATH}/jobs",
                         customHeaders: [
                             [name: 'X-Domino-Api-Key', value: DOMINO_API_KEY, maskValue: true],
                             [name: 'Content-Type', value: 'application/json']
