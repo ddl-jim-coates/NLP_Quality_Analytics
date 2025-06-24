@@ -8,17 +8,27 @@ pipeline {
     }
     
     stages {
-        stage('Trigger Domino Training Job') {
-            when {
-                anyOf {
-                    branch 'main'
-                    branch 'master'
-                }
-            }
+        stage('Debug Info') {
             steps {
                 script {
+                    echo "🔍 Debug Information:"
+                    echo "Branch Name: ${env.BRANCH_NAME ?: 'NOT SET'}"
+                    echo "Git Branch: ${env.GIT_BRANCH ?: 'NOT SET'}"
+                    echo "Build Number: ${BUILD_NUMBER}"
+                    echo "Domino URL: ${DOMINO_URL}"
+                    echo "Domino Project: ${DOMINO_PROJECT}"
+                }
+            }
+        }
+        
+        stage('Trigger Domino Training Job') {
+            // REMOVED the 'when' condition so it always runs
+            steps {
+                script {
+                    echo "🚀 Starting Domino job..."
+                    
                     def jobPayload = [
-                        command: ["python", "src/experiments/mlflow_tracking.py"],
+                        command: ["python", "experiments/mlflow_tracking.py"],  // Fixed path - removed 'src/'
                         isDirect: false,
                         title: "Jenkins Triggered Training - Build ${BUILD_NUMBER}",
                         tier: "Free",
@@ -27,7 +37,7 @@ pipeline {
                     
                     def response = httpRequest(
                         httpMode: 'POST',
-                        url: "${DOMINO_URL}/v1/projects/${DOMINO_PROJECT}/jobs",
+                        url: "${DOMINO_URL}v1/projects/${DOMINO_PROJECT}/jobs",  // Fixed URL - removed extra slash
                         customHeaders: [
                             [name: 'X-Domino-Api-Key', value: "${DOMINO_API_KEY}"],
                             [name: 'Content-Type', value: 'application/json']
@@ -38,7 +48,7 @@ pipeline {
                     
                     def jobInfo = readJSON text: response.content
                     env.DOMINO_JOB_ID = jobInfo.id
-                    echo "Started Domino job: ${jobInfo.id}"
+                    echo "✅ Started Domino job: ${jobInfo.id}"
                 }
             }
         }
@@ -49,11 +59,12 @@ pipeline {
             }
             steps {
                 script {
+                    echo "⏳ Waiting for job completion..."
                     timeout(time: 30, unit: 'MINUTES') {
                         waitUntil {
                             def statusResponse = httpRequest(
                                 httpMode: 'GET',
-                                url: "${DOMINO_URL}/v1/projects/${DOMINO_PROJECT}/jobs/${env.DOMINO_JOB_ID}",
+                                url: "${DOMINO_URL}v1/projects/${DOMINO_PROJECT}/jobs/${env.DOMINO_JOB_ID}",
                                 customHeaders: [
                                     [name: 'X-Domino-Api-Key', value: "${DOMINO_API_KEY}"]
                                 ],
@@ -61,7 +72,7 @@ pipeline {
                             )
                             
                             def jobStatus = readJSON text: statusResponse.content
-                            echo "Job status: ${jobStatus.statuses[-1].status}"
+                            echo "📊 Job status: ${jobStatus.statuses[-1].status}"
                             
                             return jobStatus.statuses[-1].status in ['Succeeded', 'Failed', 'Error']
                         }
@@ -73,7 +84,7 @@ pipeline {
     
     post {
         always {
-            echo "Pipeline completed"
+            echo "🏁 Pipeline completed"
         }
         success {
             echo "✅ Successfully trained and deployed model"
