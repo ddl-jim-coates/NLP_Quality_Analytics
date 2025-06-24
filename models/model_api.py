@@ -43,46 +43,30 @@ def predict_category(text):
     else:
         return {'category': 'Documentation Management', 'confidence': 0.65}
 
-def predict(data):
+def predict(text):
     """
     Main prediction function for Domino Model API
     
     Args:
-        data (dict): Request data containing the text field
+        text (str): The finding text to classify (extracted from request data.text)
         
     Returns:
         dict: Prediction results with category and confidence
     """
     try:
-        # Validate input structure
-        if not data:
+        # Validate input
+        if text is None:
             return {
-                'error': 'Missing required parameter: data',
+                'error': 'Missing required parameter: text',
                 'status': 'error',
                 'timestamp': datetime.now().isoformat()
             }
-        
-        if not isinstance(data, dict):
-            return {
-                'error': 'Invalid input: data must be a dictionary',
-                'status': 'error',
-                'timestamp': datetime.now().isoformat()
-            }
-            
-        if 'text' not in data:
-            return {
-                'error': 'Missing required field: text in data object',
-                'status': 'error',
-                'available_fields': list(data.keys()),
-                'timestamp': datetime.now().isoformat()
-            }
-        
-        text = data['text']
         
         if not isinstance(text, str):
             return {
                 'error': 'Invalid input: text must be a string',
                 'status': 'error',
+                'received_type': str(type(text)),
                 'timestamp': datetime.now().isoformat()
             }
             
@@ -125,9 +109,6 @@ def predict(data):
 
 # Test the function if run directly
 if __name__ == '__main__':
-    # Test with proper Domino data structure
-    test_data = {
-        "text": "Training records for personnel were incomplete. Required certifications missing."
-    }
-    result = predict(test_data)
+    # Test with direct parameter as Domino will call it
+    result = predict("Training records for personnel were incomplete. Required certifications missing.")
     print("Test result:", result)
