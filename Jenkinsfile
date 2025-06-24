@@ -27,13 +27,15 @@ pipeline {
                 script {
                     echo "🚀 Starting Domino job using legacy API..."
                     
-                    // Based on legacy API docs: POST /v1/projects/{username}/{project_name}/runs
+                    // Based on legacy API docs - more complete payload
                     def jobPayload = [
                         command: ["python", "experiments/mlflow_tracking.py"],
                         isDirect: false,
-                        title: "Jenkins Triggered Training - Build ${BUILD_NUMBER}",
-                        tier: "Free"
+                        title: "Jenkins Triggered Training - Build ${BUILD_NUMBER}"
+                        // Removed 'tier' for now - might not be required
                     ]
+                    
+                    echo "📤 Sending payload: ${groovy.json.JsonOutput.toJson(jobPayload)}"
                     
                     def response = httpRequest(
                         httpMode: 'POST',
@@ -43,13 +45,22 @@ pipeline {
                             [name: 'Content-Type', value: 'application/json']
                         ],
                         requestBody: groovy.json.JsonOutput.toJson(jobPayload),
-                        validResponseCodes: '200:299'
+                        validResponseCodes: '200:299,400' // Allow 400 to see the error message
                     )
                     
-                    def jobInfo = readJSON text: response.content
-                    env.DOMINO_RUN_ID = jobInfo.runId
-                    echo "✅ Started Domino run: ${jobInfo.runId}"
-                    echo "🔗 View run at: ${jobInfo.message ?: 'Check your Domino project'}"
+                    echo "📨 Response status: ${response.status}"
+                    echo "📄 Response body: ${response.content}"
+                    
+                    if (response.status == 200 || response.status == 201) {
+                        def jobInfo = readJSON text: response.content
+                        env.DOMINO_RUN_ID = jobInfo.runId
+                        echo "✅ Started Domino run: ${jobInfo.runId}"
+                        echo "🔗 View run at: ${jobInfo.message ?: 'Check your Domino project'}"
+                    } else {
+                        echo "❌ Failed to start run. Status: ${response.status}"
+                        echo "❌ Error details: ${response.content}"
+                        error("Failed to start Domino run")
+                    }
                 }
             }
         }
