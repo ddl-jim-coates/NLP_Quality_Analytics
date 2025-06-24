@@ -133,10 +133,12 @@ pipeline {
             echo "🏁 Pipeline completed"
         }
         success {
-            echo "✅ Successfully started and monitored Domino training job!"
-            if (env.DOMINO_RUN_ID) {
-                echo "🎯 Run ID: ${env.DOMINO_RUN_ID}"
-                echo "🔗 Check run details at: ${DOMINO_URL}/projects/${DOMINO_PROJECT}/runs"
+            script {
+                echo "✅ Successfully started and monitored Domino training job!"
+                if (env.DOMINO_RUN_ID) {
+                    echo "🎯 Run ID: ${env.DOMINO_RUN_ID}"
+                    echo "🔗 Check run details at: ${DOMINO_URL}/projects/${DOMINO_PROJECT}/runs"
+                }
             }
         }
         failure {
