@@ -31,7 +31,7 @@ pipeline {
                     try {
                         def projectResponse = httpRequest(
                             httpMode: 'GET',
-                            url: "${DOMINO_URL}/v1/projects/${DOMINO_PROJECT}",
+                            url: "${DOMINO_URL}/projects/${DOMINO_PROJECT}",
                             customHeaders: [
                                 [name: 'X-Domino-Api-Key', value: DOMINO_API_KEY, maskValue: true]
                             ],
