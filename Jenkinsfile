@@ -17,116 +17,27 @@ pipeline {
                     echo "Build Number: ${BUILD_NUMBER}"
                     echo "Domino URL: ${DOMINO_URL}"
                     echo "Domino Project: ${DOMINO_PROJECT}"
-                    echo "Full API URL: ${DOMINO_URL}/v1/projects/${DOMINO_PROJECT}/jobs"
-                }
-            }
-        }
-        
-        stage('Test Domino API Connection') {
-            steps {
-                script {
-                    echo "🔍 Testing Domino API connection..."
-                    
-                    // First, let's try to get project info to verify the path is correct
-                    try {
-                        def projectResponse = httpRequest(
-                            httpMode: 'GET',
-                            url: "${DOMINO_URL}/v1/projects/${DOMINO_PROJECT}",
-                            customHeaders: [
-                                [name: 'X-Domino-Api-Key', value: DOMINO_API_KEY, maskValue: true]
-                            ],
-                            validResponseCodes: '200:299,404'
-                        )
-                        
-                        if (projectResponse.status == 200) {
-                            echo "✅ Project found! Project API is working."
-                        } else {
-                            echo "❌ Project not found (404). Let's try some alternatives..."
-                        }
-                        
-                    } catch (Exception e) {
-                        echo "⚠️ Error testing project API: ${e.getMessage()}"
-                    }
-                    
-                    // Let's also try without the project path to test basic API connectivity
-                    try {
-                        def baseResponse = httpRequest(
-                            httpMode: 'GET',
-                            url: "${DOMINO_URL}/v1/projects",
-                            customHeaders: [
-                                [name: 'X-Domino-Api-Key', value: DOMINO_API_KEY, maskValue: true]
-                            ],
-                            validResponseCodes: '200:299,401,403,404'
-                        )
-                        
-                        echo "Base API response status: ${baseResponse.status}"
-                        
-                    } catch (Exception e) {
-                        echo "⚠️ Error testing base API: ${e.getMessage()}"
-                    }
-                }
-            }
-        }
-        
-        stage('Try Alternative Project Paths') {
-            steps {
-                script {
-                    echo "🔍 Testing alternative project paths..."
-                    
-                    def alternativePaths = [
-                        'jim_coates/NLP_Quality_Analytics',
-                        'jim-coates/NLP_Quality_Analytics', 
-                        'jim_coates/nlp_quality_analytics',
-                        'jim_coates/nlp-quality-analytics'
-                    ]
-                    
-                    alternativePaths.each { projectPath ->
-                        try {
-                            echo "Testing path: ${projectPath}"
-                            def response = httpRequest(
-                                httpMode: 'GET',
-                                url: "${DOMINO_URL}/v1/projects/${projectPath}",
-                                customHeaders: [
-                                    [name: 'X-Domino-Api-Key', value: DOMINO_API_KEY, maskValue: true]
-                                ],
-                                validResponseCodes: '200:299,404'
-                            )
-                            
-                            if (response.status == 200) {
-                                echo "✅ FOUND! Correct project path: ${projectPath}"
-                                env.CORRECT_PROJECT_PATH = projectPath
-                                return true // Break out of the loop
-                            } else {
-                                echo "❌ ${projectPath} - Not found"
-                            }
-                            
-                        } catch (Exception e) {
-                            echo "❌ ${projectPath} - Error: ${e.getMessage()}"
-                        }
-                    }
+                    echo "API URL will be: ${DOMINO_URL}/v1/projects/${DOMINO_PROJECT}/runs"
                 }
             }
         }
         
         stage('Trigger Domino Training Job') {
-            when {
-                expression { env.CORRECT_PROJECT_PATH != null }
-            }
             steps {
                 script {
-                    echo "🚀 Starting Domino job with correct path: ${env.CORRECT_PROJECT_PATH}"
+                    echo "🚀 Starting Domino job using legacy API..."
                     
+                    // Based on legacy API docs: POST /v1/projects/{username}/{project_name}/runs
                     def jobPayload = [
                         command: ["python", "experiments/mlflow_tracking.py"],
                         isDirect: false,
                         title: "Jenkins Triggered Training - Build ${BUILD_NUMBER}",
-                        tier: "Free",
-                        publishApiEndpoint: false
+                        tier: "Free"
                     ]
                     
                     def response = httpRequest(
                         httpMode: 'POST',
-                        url: "${DOMINO_URL}/v1/projects/${env.CORRECT_PROJECT_PATH}/jobs",
+                        url: "${DOMINO_URL}/v1/projects/${DOMINO_PROJECT}/runs",
                         customHeaders: [
                             [name: 'X-Domino-Api-Key', value: DOMINO_API_KEY, maskValue: true],
                             [name: 'Content-Type', value: 'application/json']
@@ -136,32 +47,82 @@ pipeline {
                     )
                     
                     def jobInfo = readJSON text: response.content
-                    env.DOMINO_JOB_ID = jobInfo.id
-                    echo "✅ Started Domino job: ${jobInfo.id}"
+                    env.DOMINO_RUN_ID = jobInfo.runId
+                    echo "✅ Started Domino run: ${jobInfo.runId}"
+                    echo "🔗 View run at: ${jobInfo.message ?: 'Check your Domino project'}"
                 }
             }
         }
         
-        stage('Fallback - Manual Job Start') {
+        stage('Monitor Training Progress') {
             when {
-                expression { env.CORRECT_PROJECT_PATH == null }
+                expression { env.DOMINO_RUN_ID != null }
             }
             steps {
                 script {
-                    echo "❌ Could not find correct project path automatically."
-                    echo "🔧 Manual steps to fix:"
-                    echo "1. Go to your Domino project: ${DOMINO_URL}/projects"
-                    echo "2. Find your project 'NLP_Quality_Analytics'"
-                    echo "3. Look at the URL - it should be something like:"
-                    echo "   ${DOMINO_URL}/workspace/username/projectname"
-                    echo "4. Update DOMINO_PROJECT variable in Jenkinsfile with correct path"
-                    echo ""
-                    echo "Common patterns:"
-                    echo "- jim-coates/nlp-quality-analytics (kebab-case)"
-                    echo "- jim_coates/nlp_quality_analytics (snake_case)"
-                    echo "- JimCoates/NLPQualityAnalytics (no spaces/underscores)"
+                    echo "⏳ Monitoring training progress..."
                     
-                    currentBuild.result = 'UNSTABLE'
+                    timeout(time: 30, unit: 'MINUTES') {
+                        waitUntil {
+                            try {
+                                // Based on legacy API: GET /v1/projects/{username}/{project_name}/runs/{run_id}
+                                def statusResponse = httpRequest(
+                                    httpMode: 'GET',
+                                    url: "${DOMINO_URL}/v1/projects/${DOMINO_PROJECT}/runs/${env.DOMINO_RUN_ID}",
+                                    customHeaders: [
+                                        [name: 'X-Domino-Api-Key', value: DOMINO_API_KEY, maskValue: true]
+                                    ],
+                                    validResponseCodes: '200:299'
+                                )
+                                
+                                def runStatus = readJSON text: statusResponse.content
+                                def currentStatus = runStatus.status
+                                echo "📊 Run status: ${currentStatus}"
+                                
+                                // Check if run is finished
+                                return currentStatus in ['Succeeded', 'Failed', 'Error', 'Stopped']
+                                
+                            } catch (Exception e) {
+                                echo "⚠️  Error checking run status: ${e.getMessage()}"
+                                return true // Exit the wait loop on error
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Get Run Results') {
+            when {
+                expression { env.DOMINO_RUN_ID != null }
+            }
+            steps {
+                script {
+                    echo "📊 Fetching final run status..."
+                    
+                    try {
+                        def finalResponse = httpRequest(
+                            httpMode: 'GET',
+                            url: "${DOMINO_URL}/v1/projects/${DOMINO_PROJECT}/runs/${env.DOMINO_RUN_ID}",
+                            customHeaders: [
+                                [name: 'X-Domino-Api-Key', value: DOMINO_API_KEY, maskValue: true]
+                            ],
+                            validResponseCodes: '200:299'
+                        )
+                        
+                        def finalStatus = readJSON text: finalResponse.content
+                        echo "🏁 Final run status: ${finalStatus.status}"
+                        
+                        if (finalStatus.status == 'Succeeded') {
+                            echo "🎉 Training job completed successfully!"
+                        } else {
+                            echo "⚠️  Training job status: ${finalStatus.status}"
+                            currentBuild.result = 'UNSTABLE'
+                        }
+                        
+                    } catch (Exception e) {
+                        echo "⚠️  Could not get final run status: ${e.getMessage()}"
+                    }
                 }
             }
         }
@@ -172,13 +133,17 @@ pipeline {
             echo "🏁 Pipeline completed"
         }
         success {
-            echo "✅ Successfully started Domino training job!"
+            echo "✅ Successfully started and monitored Domino training job!"
+            if (env.DOMINO_RUN_ID) {
+                echo "🎯 Run ID: ${env.DOMINO_RUN_ID}"
+                echo "🔗 Check run details at: ${DOMINO_URL}/projects/${DOMINO_PROJECT}/runs"
+            }
         }
         failure {
             echo "❌ Pipeline failed"
         }
         unstable {
-            echo "⚠️ Pipeline completed with issues - check project path"
+            echo "⚠️  Pipeline completed with warnings"
         }
     }
 }
