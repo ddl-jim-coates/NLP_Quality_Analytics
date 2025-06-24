@@ -27,12 +27,11 @@ pipeline {
                 script {
                     echo "🚀 Starting Domino job using legacy API..."
                     
-                    // Based on legacy API docs - more complete payload
+                    // Based on legacy API docs - simple payload
                     def jobPayload = [
                         command: ["python", "experiments/mlflow_tracking.py"],
                         isDirect: false,
                         title: "Jenkins Triggered Training - Build ${BUILD_NUMBER}"
-                        // Removed 'tier' for now - might not be required
                     ]
                     
                     echo "📤 Sending payload: ${groovy.json.JsonOutput.toJson(jobPayload)}"
@@ -45,22 +44,23 @@ pipeline {
                             [name: 'Content-Type', value: 'application/json']
                         ],
                         requestBody: groovy.json.JsonOutput.toJson(jobPayload),
-                        validResponseCodes: '200:299,400' // Allow 400 to see the error message
+                        validResponseCodes: '200:299'
                     )
                     
                     echo "📨 Response status: ${response.status}"
-                    echo "📄 Response body: ${response.content}"
+                    echo "📄 Response content: ${response.content}"
                     
-                    if (response.status == 200 || response.status == 201) {
-                        def jobInfo = readJSON text: response.content
-                        env.DOMINO_RUN_ID = jobInfo.runId
-                        echo "✅ Started Domino run: ${jobInfo.runId}"
-                        echo "🔗 View run at: ${jobInfo.message ?: 'Check your Domino project'}"
-                    } else {
-                        echo "❌ Failed to start run. Status: ${response.status}"
-                        echo "❌ Error details: ${response.content}"
-                        error("Failed to start Domino run")
+                    // Extract runId from response content using simple string parsing
+                    def responseText = response.content
+                    if (responseText.contains('"runId"')) {
+                        def runIdMatch = responseText =~ /"runId"\s*:\s*"([^"]+)"/
+                        if (runIdMatch) {
+                            env.DOMINO_RUN_ID = runIdMatch[0][1]
+                            echo "✅ Started Domino run: ${env.DOMINO_RUN_ID}"
+                        }
                     }
+                    
+                    echo "🔗 Check your Domino project for the new run!"
                 }
             }
         }
@@ -71,12 +71,11 @@ pipeline {
             }
             steps {
                 script {
-                    echo "⏳ Monitoring training progress..."
+                    echo "⏳ Monitoring training progress for run: ${env.DOMINO_RUN_ID}"
                     
                     timeout(time: 30, unit: 'MINUTES') {
                         waitUntil {
                             try {
-                                // Based on legacy API: GET /v1/projects/{username}/{project_name}/runs/{run_id}
                                 def statusResponse = httpRequest(
                                     httpMode: 'GET',
                                     url: "${DOMINO_URL}/v1/projects/${DOMINO_PROJECT}/runs/${env.DOMINO_RUN_ID}",
@@ -86,12 +85,22 @@ pipeline {
                                     validResponseCodes: '200:299'
                                 )
                                 
-                                def runStatus = readJSON text: statusResponse.content
-                                def currentStatus = runStatus.status
-                                echo "📊 Run status: ${currentStatus}"
+                                def responseText = statusResponse.content
+                                echo "📊 Run status response: ${responseText}"
                                 
-                                // Check if run is finished
-                                return currentStatus in ['Succeeded', 'Failed', 'Error', 'Stopped']
+                                // Simple string parsing to check status
+                                def isFinished = responseText.contains('"status":"Succeeded"') || 
+                                               responseText.contains('"status":"Failed"') || 
+                                               responseText.contains('"status":"Error"') || 
+                                               responseText.contains('"status":"Stopped"')
+                                
+                                if (isFinished) {
+                                    echo "🏁 Run has finished!"
+                                    return true
+                                } else {
+                                    echo "⏳ Run still in progress..."
+                                    return false
+                                }
                                 
                             } catch (Exception e) {
                                 echo "⚠️  Error checking run status: ${e.getMessage()}"
@@ -109,7 +118,7 @@ pipeline {
             }
             steps {
                 script {
-                    echo "📊 Fetching final run status..."
+                    echo "📊 Fetching final run status for: ${env.DOMINO_RUN_ID}"
                     
                     try {
                         def finalResponse = httpRequest(
@@ -121,13 +130,16 @@ pipeline {
                             validResponseCodes: '200:299'
                         )
                         
-                        def finalStatus = readJSON text: finalResponse.content
-                        echo "🏁 Final run status: ${finalStatus.status}"
+                        def responseText = finalResponse.content
+                        echo "🏁 Final run response: ${responseText}"
                         
-                        if (finalStatus.status == 'Succeeded') {
+                        if (responseText.contains('"status":"Succeeded"')) {
                             echo "🎉 Training job completed successfully!"
+                        } else if (responseText.contains('"status":"Failed"')) {
+                            echo "❌ Training job failed"
+                            currentBuild.result = 'UNSTABLE'
                         } else {
-                            echo "⚠️  Training job status: ${finalStatus.status}"
+                            echo "⚠️  Training job finished with unknown status"
                             currentBuild.result = 'UNSTABLE'
                         }
                         
