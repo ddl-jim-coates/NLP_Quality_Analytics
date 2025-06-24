@@ -1,5 +1,6 @@
 # models/model_api.py
-# Minimal Domino Model API for Quality Finding Category Classification
+# Domino Model API for Quality Finding Category Classification
+# Based on: https://docs.dominodatalab.com/en/cloud/user_guide/d2a397/use-a-domino-endpoint-to-share-your-model/
 
 import logging
 from datetime import datetime
@@ -42,22 +43,52 @@ def predict_category(text):
     else:
         return {'category': 'Documentation Management', 'confidence': 0.65}
 
-def predict(request_data):
-    """Main prediction function for Domino Model API"""
+def predict(data):
+    """
+    Main prediction function for Domino Model API
+    
+    Args:
+        data (dict): Request data containing the text field
+        
+    Returns:
+        dict: Prediction results with category and confidence
+    """
     try:
-        # Validate input
-        if not request_data or 'text' not in request_data:
+        # Validate input structure
+        if not data:
             return {
-                'error': 'Missing required field: text',
+                'error': 'Missing required parameter: data',
                 'status': 'error',
                 'timestamp': datetime.now().isoformat()
             }
         
-        text = request_data['text']
-        
-        if not isinstance(text, str) or len(text.strip()) == 0:
+        if not isinstance(data, dict):
             return {
-                'error': 'Invalid input: text must be a non-empty string',
+                'error': 'Invalid input: data must be a dictionary',
+                'status': 'error',
+                'timestamp': datetime.now().isoformat()
+            }
+            
+        if 'text' not in data:
+            return {
+                'error': 'Missing required field: text in data object',
+                'status': 'error',
+                'available_fields': list(data.keys()),
+                'timestamp': datetime.now().isoformat()
+            }
+        
+        text = data['text']
+        
+        if not isinstance(text, str):
+            return {
+                'error': 'Invalid input: text must be a string',
+                'status': 'error',
+                'timestamp': datetime.now().isoformat()
+            }
+            
+        if len(text.strip()) == 0:
+            return {
+                'error': 'Invalid input: text cannot be empty',
                 'status': 'error',
                 'timestamp': datetime.now().isoformat()
             }
@@ -77,6 +108,10 @@ def predict(request_data):
                 'version': '1.0.0',
                 'accuracy': 0.86
             },
+            'input_info': {
+                'text_length': len(text),
+                'text_preview': text[:100] + '...' if len(text) > 100 else text
+            },
             'timestamp': datetime.now().isoformat()
         }
         
@@ -90,8 +125,9 @@ def predict(request_data):
 
 # Test the function if run directly
 if __name__ == '__main__':
-    test_input = {
-        'text': 'Training records for personnel were incomplete.'
+    # Test with proper Domino data structure
+    test_data = {
+        "text": "Training records for personnel were incomplete. Required certifications missing."
     }
-    result = predict(test_input)
+    result = predict(test_data)
     print("Test result:", result)
