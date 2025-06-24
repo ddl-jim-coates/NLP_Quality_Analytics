@@ -8,15 +8,6 @@ pipeline {
     }
     
     stages {
-        stage('Code Quality Check') {
-            steps {
-                script {
-                    echo "Running code quality checks..."
-                    // Add your linting, testing, etc.
-                }
-            }
-        }
-        
         stage('Trigger Domino Training Job') {
             when {
                 anyOf {
