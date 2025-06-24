@@ -16,8 +16,16 @@ from sklearn.metrics import accuracy_score, classification_report
 
 def create_dummy_model():
     """Create a dummy model for demonstration purposes"""
-    # Generate synthetic data
-    X, y = make_classification(n_samples=1000, n_features=20, n_classes=10, random_state=42)
+    # Generate synthetic data with proper parameters for 10 classes
+    X, y = make_classification(
+        n_samples=1000, 
+        n_features=20, 
+        n_informative=15,  # Increased informative features
+        n_redundant=5,     # Added redundant features
+        n_classes=10, 
+        n_clusters_per_class=1,  # Reduced clusters per class
+        random_state=42
+    )
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
     # Train a simple model
